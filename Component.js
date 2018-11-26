@@ -5,57 +5,70 @@
     2013875008
     Landscape Architecture
 
-    2018.11.12
+    2018.11.25
 */
-var Component = function(vertices, colors, indices, texturePath) {
-    
-    this.vertices = new Float32Array(vertices);
-    this.colors = new Float32Array(colors);
-    this.indices = new Uint8Array(indices);
-    this.texturePath = texturePath;
-    
-    this.moveMatrix = new Matrix4();
-    this.posMatrix = new Matrix4();
-    this.rotateMatrix = new Matrix4();
-};
 
+class Component {
 
-Component.prototype.position = function(x, y) {
-    
-    this.posMatrix.translate(x, y, 0.0);
-};
+    constructor(vertices, indices) {
+        this.vertices = new Float32Array(vertices);
+        this.indices = new Uint8Array(indices);
+        this.dynamicMatrix = new Matrix4();
+        this.staticMatrix = new Matrix4();
+        this.parent = null;
+    }
 
+    get modelMatrix() {
+        return new Matrix4(this.accumulatedDynamicMatrix).concat(this.staticMatrix);
+    }
 
-Component.prototype.rotate = function(angle) {
-    
-    this.rotateMatrix.rotate(angle, 0.0, 0.0, 1.0);
-};
+    get accumulatedDynamicMatrix() {
+        if (this.parent) {
+            return new Matrix4(this.parent.accumulatedDynamicMatrix).concat(this.dynamicMatrix)
+        } else {
+            return this.dynamicMatrix;
+        }
+    }
 
+    addChild(child) {
+        child.parent = this;
+    }
 
-Component.prototype.turn = function(angle) {
-    
-    this.moveMatrix.rotate(angle, 0.0, 0.0, 1.0);
-};
+    moveY(distance) {
+        this.dynamicMatrix.translate(0.0, distance, 0.0);
+    }
 
+    moveZ(distance) {
+        this.dynamicMatrix.translate(0.0, 0.0, distance);
+    }
 
-Component.prototype.forward = function(distance) {
-    
-    this.moveMatrix.translate(0.0, distance, 0.0);
-};
+    rotateZ(angle) {
+        this.dynamicMatrix.rotate(angle, 0.0, 0.0, 1.0);
+    }
 
+    scale(x, y, z) {
+        this.dynamicMatrix.scale(x, y, z);
+    }
 
-Component.prototype.up = function(distance) {
-    
-    this.moveMatrix.translate(0.0, 0.0, distance);
-};
+    fix() {
+        this.staticMatrix.set(this.dynamicMatrix);
+        this.dynamicMatrix = new Matrix4();
+    }
+}
 
+class ColoredComponent extends Component {
 
-Component.prototype.getMatrix = function() {
-    
-    var retMatrix = new Matrix4(this.moveMatrix);
-    
-    retMatrix.concat(this.posMatrix);
-    retMatrix.concat(this.rotateMatrix);
+    constructor(vertices, colors, indices) {
+        super(vertices, indices);
+        this.colors = new Float32Array(colors);
+    }
+}
 
-    return retMatrix;
-};
+class TexturedComponent extends Component {
+
+    constructor(vertices, indices, image) {
+        super(vertices, indices);
+        this.image = new Image();
+        this.image.src = image;
+    }
+}
