@@ -7,7 +7,6 @@
 
     2018.11.25
 */
-
 class Component {
 
     constructor(vertices, indices) {
@@ -69,6 +68,7 @@ class TexturedComponent extends Component {
     constructor(vertices, indices, image) {
         super(vertices, indices);
         this.image = new Image();
+        this.image.crossOrigin = 'anonymous';
         this.image.src = image;
     }
 }

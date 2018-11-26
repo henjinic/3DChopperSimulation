@@ -11,18 +11,15 @@ class Renderer {
 
     constructor(canvas) {
         var gl = this.gl = canvas.getContext('webgl2');
-
         this.program = {};
 
         initShaders(gl, document.getElementById('vshader-colored').text, document.getElementById('fshader-colored').text);
         this.program['COLORED'] = this._setProgram(gl.program, ['a_Position', 'a_Color', 'u_MvpMatrix']);
-
         initShaders(gl, document.getElementById('vshader-textured').text, document.getElementById('fshader-textured').text);
-        this.program['TEXTURED'] = this._setProgram(gl.program, ['a_Position', 'a_TexCoord', 'u_Sampler']);
+        this.program['TEXTURED'] = this._setProgram(gl.program, ['a_Position', 'a_TexCoord', 'u_MvpMatrix', 'u_Sampler']);
 
         this.viewMatrix = new Matrix4();
         this.viewMatrix.lookAt(0, -3, 2, 0, 0, 0, 0, 1, 0);
-
         this.projMatrix = new Matrix4();
         this.projMatrix.setPerspective(90, 1.0, 0.1, 100);
 
@@ -47,35 +44,34 @@ class Renderer {
 
     load(component) {
         var gl = this.gl;
-
         component.vao = gl.createVertexArray();
         gl.bindVertexArray(component.vao);
+
         if (component instanceof ColoredComponent) {
-            var program = this.program['COLORED'];
-
-            this._setArrayBuffer(component.vertices, program.loc['a_Position']);
-            this._setArrayBuffer(component.colors, program.loc['a_Color']);
-
-            var indexBuffer = gl.createBuffer();
-            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
-            gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, component.indices, gl.STATIC_DRAW);
-
+            this._setArrayBuffer(component.vertices, this.program['COLORED'].loc['a_Position'], 3);
+            this._setArrayBuffer(component.colors, this.program['COLORED'].loc['a_Color'], 3);
         } else if (component instanceof TexturedComponent) {
-
+            this._setArrayBuffer(component.vertices, this.program['TEXTURED'].loc['a_Position'], 3);
+            this._setArrayBuffer(new Float32Array([0.0, 1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0]), this.program['TEXTURED'].loc['a_TexCoord'], 2);
+            component.image.onload = function() {
+                component.texture = gl.createTexture();
+                gl.bindTexture(gl.TEXTURE_2D, component.texture);
+                gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1);
+                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+                gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, component.image);
+            };
         } else {
             console.log('Error: Renderer.load()');
         }
-        
-        //gl.bindVertexArray(null); 
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, gl.createBuffer());
+        gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, component.indices, gl.STATIC_DRAW);
     }
 
-    _setArrayBuffer(data, location) {
+    _setArrayBuffer(data, location, num) {
         var gl = this.gl;
-        var buffer = gl.createBuffer();
-
-        gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+        gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
         gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW);
-        gl.vertexAttribPointer(location, 3, gl.FLOAT, false, 0, 0);
+        gl.vertexAttribPointer(location, num, gl.FLOAT, false, 0, 0);
         gl.enableVertexAttribArray(location);
     }
 
@@ -83,100 +79,28 @@ class Renderer {
         var gl = this.gl;
         var mvpMatrix = new Matrix4(this.projMatrix).concat(this.viewMatrix).concat(component.modelMatrix);
 
+        gl.bindVertexArray(component.vao);
         if (component instanceof ColoredComponent) {
-            var program = this.program['COLORED'];
-            gl.useProgram(program);
-            gl.uniformMatrix4fv(program.loc['u_MvpMatrix'], false, mvpMatrix.elements);
-            gl.bindVertexArray(component.vao);
+            gl.useProgram(this.program['COLORED']);
+            gl.uniformMatrix4fv(this.program['COLORED'].loc['u_MvpMatrix'], false, mvpMatrix.elements);
             gl.drawElements(gl.TRIANGLES, component.indices.length, gl.UNSIGNED_BYTE, 0);
         } else if (component instanceof TexturedComponent) {
-
+            gl.useProgram(this.program['TEXTURED']);
+            gl.uniformMatrix4fv(this.program['TEXTURED'].loc['u_MvpMatrix'], false, mvpMatrix.elements);
+            gl.bindTexture(gl.TEXTURE_2D, component.texture);
+            gl.activeTexture(gl.TEXTURE0);
+            gl.uniform1i(this.program['TEXTURED'].loc['u_Sampler'], 0); // texture unit number == 0
+            gl.drawElements(gl.TRIANGLES, component.indices.length, gl.UNSIGNED_BYTE, 0);
         } else {
             console.log('Error: Renderer.render()');
         }
     }
 
     setViewport(posX, posY, width, height) {
-    
         this.gl.viewport(posX, posY, width, height);
     }
 
     clear() {
-        var gl = this.gl;
-    
-        gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
+        this.gl.clear(this.gl.COLOR_BUFFER_BIT|this.gl.DEPTH_BUFFER_BIT);
     }
 }
-
-
-var GraphicsManager = function(canvas) {
-
-    var gl = getWebGLContext(canvas);
-    
-    this.viewMatrix = new Matrix4();
-    this.viewMatrix.lookAt(0, -3, 2, 0, 0, 0, 0, 1, 0);
-    this.projMatrix = new Matrix4();
-    this.projMatrix.setPerspective(90, 1.0, 0.1, 100);
-    
-    this.gl = gl;
-    
-    this.vertexBuffer = gl.createBuffer();
-    this.colorBuffer = gl.createBuffer();
-    this.indexBuffer = gl.createBuffer();
-    this.texCoordBuffer = gl.createBuffer();
-    this.texture = gl.createTexture();
-    
-
-    
-    initShaders(gl, VSHADER_SOURCE, FSHADER_SOURCE);
-    
-    this.locOfMatrix = gl.getUniformLocation(gl.program, 'u_Matrix');
-    this.locOfSampler = gl.getUniformLocation(gl.program, 'u_Sampler');
-    this.locOfPosition = gl.getAttribLocation(gl.program, 'a_Position');
-    this.locOfColor = gl.getAttribLocation(gl.program, 'a_Color');
-    this.locOfTexCoord = gl.getAttribLocation(gl.program, 'a_TexCoord');
-
-    gl.enable(gl.DEPTH_TEST);
-    
-    gl.clearColor(0.0, 0.0, 0.0, 1.0);
-    
-    this.clear();
-};
-
-
-GraphicsManager.prototype.draw = function(component) {
-    
-    var gl = this.gl;
-    var mvpMatrix = new Matrix4(this.projMatrix).concat(this.viewMatrix).concat(component.getMatrix());
-    
-    gl.uniformMatrix4fv(this.locOfMatrix, false, mvpMatrix.elements);
-    
-    this._setBuffer(this.vertexBuffer, component.vertices, this.locOfPosition, 3);
-    
-    this._setBuffer(this.texCoordBuffer, [
-        0.0, 1.0,
-        0.0, 0.0,
-        1.0, 1.0,
-        1.0, 0.0
-    ], this.locOfTexCoord, 2);
-
-    var texture = this.texture;
-    var locOfSampler = this.locOfSampler;
-    this._setBuffer(this.colorBuffer, component.colors, this.locOfColor, 3); 
-    component.image.onload = function() {        
-        gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1);
-        gl.activeTexture(gl.TEXTURE0);
-        gl.bindTexture(gl.TEXTURE_2D, texture);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-        
-        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, component.image);
-        
-        gl.uniform1i(locOfSampler, 0);
-    };
-    component.image.src = component.texturePath;
-    
-
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.indexBuffer);
-    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, component.indices, gl.STATIC_DRAW);
-    gl.drawElements(gl.TRIANGLES, component.indices.length, gl.UNSIGNED_BYTE, 0);
-};

@@ -8,82 +8,43 @@
     2018.11.25
 */
 function main() {
-    
-    // var chopper = new Chopper();
     var canvas = document.getElementById('webgl');
 
     const W = canvas.width / 2;
     const H = canvas.height;
-    
+
     var renderer = new Renderer(canvas);
 
 
 
-    var ground = new ColoredComponent([
-       -2.0, 2.0, 0.0, 
+    var ground = new TexturedComponent([
+       -2.0, 2.0, 0.0,
         2.0, 2.0, 0.0,
         2.0,-2.0, 0.0,
        -2.0,-2.0, 0.0
     ], [
-        0.5, 0.5, 0.5,
-        0.5, 0.5, 0.5,
-        0.5, 0.5, 0.5,
-        0.5, 0.5, 0.5
-    ], [
         0, 1, 2,
         0, 2, 3
-    ]);
+    ],
+        'https://raw.githubusercontent.com/henjinic/3DChopperSimulation/master/img/land.jpg'
+    );
     var chopper = new Chopper();
     renderer.load(ground);
     renderer.load(chopper.body);
     renderer.load(chopper.rotor1);
     renderer.load(chopper.rotor2);
 
-
-
     var drawAll = function() {
         renderer.clear();
-
         renderer.setViewport(0, 0, W, H);
         renderer.render(ground);
         renderer.render(chopper.body);
         renderer.render(chopper.rotor1);
         renderer.render(chopper.rotor2);
-    
         renderer.setViewport(W, 0, W, H);
-        renderer.render(ground);
+        //renderer.render(ground);
     }
-
     drawAll();
-    
-    // var ground = new Component([
-    //    -2.0, 2.0, 0.0, 
-    //     2.0, 2.0, 0.0,
-    //     2.0,-2.0, 0.0,
-    //    -2.0,-2.0, 0.0
-    // ], 0, [
-    //     0, 1, 2,
-    //     0, 2, 3
-    // ], './land.jpg');
-    // 'https://github.com/henjinic/3DChopperSimulation/blob/master/land.jpg?raw=true'
-
-
-    // var iterForRotor = new Iterator(1.0, 200.0, function(amount) { // 200 degrees per 1 sec
-        // chopper.rotor.rotate(amount);
-        // gm.drawComponents();
-    // });
-    // var iterForSubrotor = new Iterator(1.0, 350.0, function(amount) { // 350 degrees per 1 sec
-        // chopper.subrotor.rotate(amount);
-        // gm.drawComponents();
-    // });
-
-
-    var iterator = new Iterator(1.0, 200.0, function(amount) { // 200 degrees per 1 sec
-        chopper.rotor1.rotateZ(amount);
-        chopper.rotor2.rotateZ(amount);
-
-        drawAll();
-    });
 
     document.addEventListener('keydown', function(event) {
         switch (event.keyCode) {
@@ -97,10 +58,12 @@ function main() {
         drawAll();
     });
 
-    // iterForRotor.start();
-    // iterForSubrotor.start();
-
-    iterator.start();
+    var iterator = new Iterator(1.0, 200.0, function(amount) { // 200 degrees per 1 sec
+        chopper.rotor1.rotateZ(amount);
+        chopper.rotor2.rotateZ(amount);
+        drawAll();
+    });
+    //iterator.start();
 };
 
 class Chopper {
@@ -128,7 +91,7 @@ class Chopper {
             16,17,18,  16,18,19,    // down
             20,21,22,  20,22,23     // back
         ]);
-    
+
         this.rotor1 = new ColoredComponent([
             0.1, 0.1, 0.1,  -0.1, 0.1, 0.1,  -0.1,-0.1, 0.1,   0.1,-0.1, 0.1,  // v0-v1-v2-v3 front
             0.1, 0.1, 0.1,   0.1,-0.1, 0.1,   0.1,-0.1,-0.1,   0.1, 0.1,-0.1,  // v0-v3-v4-v5 right
@@ -151,7 +114,7 @@ class Chopper {
             16,17,18,  16,18,19,    // down
             20,21,22,  20,22,23     // back
         ]);
-    
+
         this.rotor2 = new ColoredComponent([
             0.1, 0.1, 0.1,  -0.1, 0.1, 0.1,  -0.1,-0.1, 0.1,   0.1,-0.1, 0.1,  // v0-v1-v2-v3 front
             0.1, 0.1, 0.1,   0.1,-0.1, 0.1,   0.1,-0.1,-0.1,   0.1, 0.1,-0.1,  // v0-v3-v4-v5 right
@@ -174,16 +137,16 @@ class Chopper {
             16,17,18,  16,18,19,    // down
             20,21,22,  20,22,23     // back
         ]);
-    
+
         this.rotor1.scale(2.0, 0.2, 0.2);
         this.rotor2.scale(0.2, 2.0, 0.2);
-    
+
         this.rotor1.moveZ(0.5);
         this.rotor2.moveZ(0.5);
-    
+
         this.rotor1.fix();
         this.rotor2.fix();
-    
+
         this.body.addChild(this.rotor1);
         this.body.addChild(this.rotor2);
     }

@@ -19,7 +19,6 @@ class Iterator {
         var second = this.second;
         var amount = this.amount;
         var behavior = this.behavior;
-
         var curTime = Date.now();
 
         var loop = function () {
@@ -30,7 +29,6 @@ class Iterator {
             behavior(amount * elapsedSecond / second);
             requestAnimationFrame(loop);
         };
-
         loop();
     }
 
