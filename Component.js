@@ -70,5 +70,6 @@ class TexturedComponent extends Component {
         this.image = new Image();
         this.image.crossOrigin = 'anonymous';
         this.image.src = image;
+        this.isLoaded = false;
     }
 }
