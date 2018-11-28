@@ -55,6 +55,7 @@ class Component {
     }
 }
 
+
 class ColoredComponent extends Component {
 
     constructor(vertices, colors, indices) {
@@ -62,6 +63,7 @@ class ColoredComponent extends Component {
         this.colors = new Float32Array(colors);
     }
 }
+
 
 class TexturedComponent extends Component {
 
