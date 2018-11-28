@@ -11,13 +11,13 @@ function main() {
     var simulator = new ChopperSimulator(document.getElementById('webgl'));
 
     simulator.drawAll();
-
     simulator.keypressOn();
-
     simulator.rotorOn();
 };
 
+
 class ChopperSimulator {
+
     constructor(canvas) {
         this.W = canvas.width / 2;
         this.H = canvas.height;
@@ -27,10 +27,47 @@ class ChopperSimulator {
         this._init();
     }
 
+    _init() {
+        this.renderer.load(this.ground.component);
+        this.renderer.load(this.chopper.body);
+        this.renderer.load(this.chopper.rotor1);
+        this.renderer.load(this.chopper.rotor2);
+        this.chopper.up(0.5);
+    }
+
     drawAll() {
         this.renderer.clear();
         this._drawLeftViewport();
         this._drawRightViewport();
+    }
+
+    _drawLeftViewport() {
+        this.renderer.setViewport(0, 0, this.W, this.H);
+        this.renderer.setDefaultView();
+        this.renderer.render(this.ground.component);
+        this.renderer.render(this.chopper.body);
+        this.renderer.render(this.chopper.rotor1);
+        this.renderer.render(this.chopper.rotor2);
+    }
+
+    _drawRightViewport() {
+        this.renderer.setViewport(this.W, 0, this.W, this.H);
+        var src = this._moveAlong(this.chopper.body, [0.0, 0.0, 0.0]);
+        var dest = src.slice();
+        dest[2] -= 1.0;
+        var up = this._moveAlong(this.chopper.body, [0.0, 1.0, 0.0]);
+        for (var i = 0; i < 3; i++)
+            up[i] -= src[i];
+        this.renderer.view(src, dest, up);
+        this.renderer.render(this.ground.component);
+    }
+
+    _moveAlong(component, vector) {
+        vector.push(1.0)
+        vector = new Vector4(vector);
+        vector = component.accumulatedDynamicMatrix.multiplyVector4(vector).elements;
+        vector = Array.from(vector).slice(0, 3);
+        return vector;
     }
 
     keypressOn() {
@@ -61,44 +98,8 @@ class ChopperSimulator {
         });
         this.iterator.start();
     }
-
-    _init() {
-        this.renderer.load(this.ground.component);
-        this.renderer.load(this.chopper.body);
-        this.renderer.load(this.chopper.rotor1);
-        this.renderer.load(this.chopper.rotor2);
-        this.chopper.up(0.5);
-    }
-
-    _drawLeftViewport() {
-        this.renderer.setViewport(0, 0, this.W, this.H);
-        this.renderer.defaultView();
-        this.renderer.render(this.ground.component);
-        this.renderer.render(this.chopper.body);
-        this.renderer.render(this.chopper.rotor1);
-        this.renderer.render(this.chopper.rotor2);
-    }
-
-    _drawRightViewport() {
-        this.renderer.setViewport(this.W, 0, this.W, this.H);
-        var src = this._moveAlong(this.chopper.body, [0.0, 0.0, 0.0]);
-        var dest = src.slice();
-        dest[2] -= 1;
-        var up = this._moveAlong(this.chopper.body, [0.0, 1.0, 0.0]);
-        for (var i = 0; i < 3; i++) {
-            up[i] -= src[i];
-        }
-        this.renderer.view(src, dest, up);
-        this.renderer.render(this.ground.component);
-    }
-
-    _moveAlong(component, vector) {
-        vector.push(1.0)
-        var vector4 = new Vector4(vector);
-
-        return Array.from(component.accumulatedDynamicMatrix.multiplyVector4(vector4).elements).slice(0, 3);
-    }
 }
+
 
 class Ground {
 
@@ -116,6 +117,7 @@ class Ground {
         );
     }
 }
+
 
 class Chopper {
 
@@ -170,8 +172,6 @@ class Chopper {
 
         this.body.addChild(this.rotor1);
         this.body.addChild(this.rotor2);
-
-
     }
 
     forward(distance) {
