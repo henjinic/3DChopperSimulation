@@ -8,84 +8,113 @@
     2018.11.25
 */
 function main() {
-    var canvas = document.getElementById('webgl');
-    const W = canvas.width / 2;
-    const H = canvas.height;
+    var simulator = new ChopperSimulator(document.getElementById('webgl'));
 
-    var renderer = new Renderer(canvas);
-    var ground = createGround('https://raw.githubusercontent.com/henjinic/3DChopperSimulation/master/img/land.jpg');
-    var chopper = new Chopper();
-    chopper.up(0.5);
+    simulator.drawAll();
 
-    renderer.load(ground);
-    renderer.load(chopper.body);
-    renderer.load(chopper.rotor1);
-    renderer.load(chopper.rotor2);
+    simulator.keypressOn();
 
-    var drawAll = function() {
-        renderer.clear();
-        {
-            renderer.setViewport(0, 0, W, H);
-            renderer.defaultView();
-            renderer.render(ground);
-            renderer.render(chopper.body);
-            renderer.render(chopper.rotor1);
-            renderer.render(chopper.rotor2);
-        }
-        {
-            renderer.setViewport(W, 0, W, H);
-            var src = moveAlong(chopper.body, [0.0, 0.0, 0.0]);
-            var dest = src.slice();
-            dest[2] -= 1;
-            var up = moveAlong(chopper.body, [0.0, 1.0, 0.0]);
-            for (var i = 0; i < 3; i++) {
-                up[i] -= src[i];
-            }
-            renderer.view(src, dest, up);
-            renderer.render(ground);
-        }
-    }
-    drawAll();
-
-    document.addEventListener('keydown', function(event) {
-        switch (event.keyCode) {
-            case 37: chopper.clockwise(10.0);        break; // left
-            case 38: chopper.forward(0.05);          break; // up
-            case 39: chopper.counterclockwise(10.0); break; // right
-            case 40: chopper.backward(0.05);         break; // down
-            case 87: chopper.up(0.05);               break; // W
-            case 83: chopper.down(0.05);             break; // S
-        }
-        drawAll();
-    });
-
-    var iterator = new Iterator(1.0, 200.0, function(amount) { // 200 degrees per 1 sec
-        chopper.rotor1.rotateZ(amount);
-        chopper.rotor2.rotateZ(amount);
-        drawAll();
-    });
-    iterator.start();
+    simulator.rotorOn();
 };
 
-function moveAlong(component, vector) {
-    vector.push(1.0)
-    var vector4 = new Vector4(vector);
+class ChopperSimulator {
+    constructor(canvas) {
+        this.W = canvas.width / 2;
+        this.H = canvas.height;
+        this.renderer = new Renderer(canvas);
+        this.ground = new Ground('https://raw.githubusercontent.com/henjinic/3DChopperSimulation/master/img/land.jpg');
+        this.chopper = new Chopper();
+        this._init();
+    }
 
-    return Array.from(component.accumulatedDynamicMatrix.multiplyVector4(vector4).elements).slice(0, 3);
+    drawAll() {
+        this.renderer.clear();
+        this._drawLeftViewport();
+        this._drawRightViewport();
+    }
+
+    keypressOn() {
+        var self = this;
+        document.onkeydown = function(event) {
+            switch (event.keyCode) {
+                case 37: self.chopper.clockwise(10.0);        break; // left
+                case 38: self.chopper.forward(0.05);          break; // up
+                case 39: self.chopper.counterclockwise(10.0); break; // right
+                case 40: self.chopper.backward(0.05);         break; // down
+                case 87: self.chopper.up(0.05);               break; // W
+                case 83: self.chopper.down(0.05);             break; // S
+            }
+            self.drawAll();
+        };
+    }
+
+    keypressOff() {
+        document.onkeydown = null;
+    }
+
+    rotorOn() {
+        var self = this;
+        this.iterator = new Iterator(1.0, 200.0, function(amount) { // 200 degrees per 1 sec
+            self.chopper.rotor1.rotateZ(amount);
+            self.chopper.rotor2.rotateZ(amount);
+            self.drawAll();
+        });
+        this.iterator.start();
+    }
+
+    _init() {
+        this.renderer.load(this.ground.component);
+        this.renderer.load(this.chopper.body);
+        this.renderer.load(this.chopper.rotor1);
+        this.renderer.load(this.chopper.rotor2);
+        this.chopper.up(0.5);
+    }
+
+    _drawLeftViewport() {
+        this.renderer.setViewport(0, 0, this.W, this.H);
+        this.renderer.defaultView();
+        this.renderer.render(this.ground.component);
+        this.renderer.render(this.chopper.body);
+        this.renderer.render(this.chopper.rotor1);
+        this.renderer.render(this.chopper.rotor2);
+    }
+
+    _drawRightViewport() {
+        this.renderer.setViewport(this.W, 0, this.W, this.H);
+        var src = this._moveAlong(this.chopper.body, [0.0, 0.0, 0.0]);
+        var dest = src.slice();
+        dest[2] -= 1;
+        var up = this._moveAlong(this.chopper.body, [0.0, 1.0, 0.0]);
+        for (var i = 0; i < 3; i++) {
+            up[i] -= src[i];
+        }
+        this.renderer.view(src, dest, up);
+        this.renderer.render(this.ground.component);
+    }
+
+    _moveAlong(component, vector) {
+        vector.push(1.0)
+        var vector4 = new Vector4(vector);
+
+        return Array.from(component.accumulatedDynamicMatrix.multiplyVector4(vector4).elements).slice(0, 3);
+    }
 }
 
-function createGround(path) {
-    return new TexturedComponent([
-       -2.0, 2.0, 0.0,
-        2.0, 2.0, 0.0,
-        2.0,-2.0, 0.0,
-       -2.0,-2.0, 0.0
-    ], [
-        0, 1, 2,
-        0, 2, 3
-    ],
-        path
-    );
+class Ground {
+
+    constructor(path) {
+        this.component = new TexturedComponent([
+           -2.0, 2.0, 0.0,
+            2.0, 2.0, 0.0,
+            2.0,-2.0, 0.0,
+           -2.0,-2.0, 0.0
+        ], [
+            0, 1, 2,
+            0, 2, 3
+        ],
+            path
+        );
+    }
 }
 
 class Chopper {
@@ -145,31 +174,6 @@ class Chopper {
 
     }
 
-    _createRotor() {
-        return new ColoredComponent([
-            0.1, 0.1, 0.1,  -0.1, 0.1, 0.1,  -0.1,-0.1, 0.1,   0.1,-0.1, 0.1,
-            0.1, 0.1, 0.1,   0.1,-0.1, 0.1,   0.1,-0.1,-0.1,   0.1, 0.1,-0.1,
-            0.1, 0.1, 0.1,   0.1, 0.1,-0.1,  -0.1, 0.1,-0.1,  -0.1, 0.1, 0.1,
-           -0.1, 0.1, 0.1,  -0.1, 0.1,-0.1,  -0.1,-0.1,-0.1,  -0.1,-0.1, 0.1,
-           -0.1,-0.1,-0.1,   0.1,-0.1,-0.1,   0.1,-0.1, 0.1,  -0.1,-0.1, 0.1,
-            0.1,-0.1,-0.1,  -0.1,-0.1,-0.1,  -0.1, 0.1,-0.1,   0.1, 0.1,-0.1
-        ], [
-            0.0, 0.0, 0.0,  0.0, 0.0, 0.0,  0.0, 0.0, 0.0,  0.0, 0.0, 0.0,
-            0.6, 0.6, 0.6,  0.6, 0.6, 0.6,  0.6, 0.6, 0.6,  0.6, 0.6, 0.6,
-            0.6, 0.6, 0.6,  0.6, 0.6, 0.6,  0.6, 0.6, 0.6,  0.6, 0.6, 0.6,
-            0.6, 0.6, 0.6,  0.6, 0.6, 0.6,  0.6, 0.6, 0.6,  0.6, 0.6, 0.6,
-            0.6, 0.6, 0.6,  0.6, 0.6, 0.6,  0.6, 0.6, 0.6,  0.6, 0.6, 0.6,
-            0.0, 0.0, 0.0,  0.0, 0.0, 0.0,  0.0, 0.0, 0.0,  0.0, 0.0, 0.0
-        ], [
-             0, 1, 2,   0, 2, 3,
-             4, 5, 6,   4, 6, 7,
-             8, 9,10,   8,10,11,
-            12,13,14,  12,14,15,
-            16,17,18,  16,18,19,
-            20,21,22,  20,22,23
-        ]);
-    }
-
     forward(distance) {
         this.body.moveY(distance);
     }
@@ -200,5 +204,30 @@ class Chopper {
             this.body.moveZ(-distance);
             this.height -= distance;
         }
+    }
+
+    _createRotor() {
+        return new ColoredComponent([
+            0.1, 0.1, 0.1,  -0.1, 0.1, 0.1,  -0.1,-0.1, 0.1,   0.1,-0.1, 0.1,
+            0.1, 0.1, 0.1,   0.1,-0.1, 0.1,   0.1,-0.1,-0.1,   0.1, 0.1,-0.1,
+            0.1, 0.1, 0.1,   0.1, 0.1,-0.1,  -0.1, 0.1,-0.1,  -0.1, 0.1, 0.1,
+           -0.1, 0.1, 0.1,  -0.1, 0.1,-0.1,  -0.1,-0.1,-0.1,  -0.1,-0.1, 0.1,
+           -0.1,-0.1,-0.1,   0.1,-0.1,-0.1,   0.1,-0.1, 0.1,  -0.1,-0.1, 0.1,
+            0.1,-0.1,-0.1,  -0.1,-0.1,-0.1,  -0.1, 0.1,-0.1,   0.1, 0.1,-0.1
+        ], [
+            0.0, 0.0, 0.0,  0.0, 0.0, 0.0,  0.0, 0.0, 0.0,  0.0, 0.0, 0.0,
+            0.6, 0.6, 0.6,  0.6, 0.6, 0.6,  0.6, 0.6, 0.6,  0.6, 0.6, 0.6,
+            0.6, 0.6, 0.6,  0.6, 0.6, 0.6,  0.6, 0.6, 0.6,  0.6, 0.6, 0.6,
+            0.6, 0.6, 0.6,  0.6, 0.6, 0.6,  0.6, 0.6, 0.6,  0.6, 0.6, 0.6,
+            0.6, 0.6, 0.6,  0.6, 0.6, 0.6,  0.6, 0.6, 0.6,  0.6, 0.6, 0.6,
+            0.0, 0.0, 0.0,  0.0, 0.0, 0.0,  0.0, 0.0, 0.0,  0.0, 0.0, 0.0
+        ], [
+             0, 1, 2,   0, 2, 3,
+             4, 5, 6,   4, 6, 7,
+             8, 9,10,   8,10,11,
+            12,13,14,  12,14,15,
+            16,17,18,  16,18,19,
+            20,21,22,  20,22,23
+        ]);
     }
 };
